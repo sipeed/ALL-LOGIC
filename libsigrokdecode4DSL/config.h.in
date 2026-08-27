@@ -1,0 +1,25 @@
+/*
+ * This file is part of the libsigrokdecode4DSL project.
+ *
+ * It is generated from config.h.in by CMake's configure_file() at configure
+ * time. The upstream autotools-based build generates it via configure, but
+ * when libsigrokdecode4DSL is vendored into the top-level CMake build that
+ * step is missing, so the header is produced here instead.
+ */
+
+#ifndef _LIBSIGROKDECODE4DSL_CONFIG_H
+#define _LIBSIGROKDECODE4DSL_CONFIG_H
+
+#define PACKAGE_TARNAME "@SRD_PACKAGE_TARNAME@"
+
+#define SRD_PACKAGE_VERSION_MAJOR @SRD_PACKAGE_VERSION_MAJOR@
+#define SRD_PACKAGE_VERSION_MINOR @SRD_PACKAGE_VERSION_MINOR@
+#define SRD_PACKAGE_VERSION_MICRO @SRD_PACKAGE_VERSION_MICRO@
+#define SRD_PACKAGE_VERSION_STRING "@SRD_PACKAGE_VERSION_STRING@"
+
+#define SRD_LIB_VERSION_CURRENT @SRD_LIB_VERSION_CURRENT@
+#define SRD_LIB_VERSION_REVISION @SRD_LIB_VERSION_REVISION@
+#define SRD_LIB_VERSION_AGE @SRD_LIB_VERSION_AGE@
+#define SRD_LIB_VERSION_STRING "@SRD_LIB_VERSION_STRING@"
+
+#endif /* _LIBSIGROKDECODE4DSL_CONFIG_H */

@@ -40,6 +40,17 @@ configure_file (
 	${PROJECT_BINARY_DIR}/DSView/config.h
 )
 
+#-------------------------------------------------------------------------------
+#= per-library config headers
+#
+# libsigrok4DSL / libsigrokdecode4DSL expect a per-library "config.h" that
+# autotools generates upstream. When vendored into this CMake build that step
+# is missing, so the headers are produced automatically by a dedicated module.
+# Versions are derived from DS_VERSION_* (single source of truth).
+#-------------------------------------------------------------------------------
+
+include(${PROJECT_SOURCE_DIR}/CMake/ConfigHeaders.cmake)
+
 #===============================================================================
 #=pkg config
 #-------------------------------------------------------------------------------
