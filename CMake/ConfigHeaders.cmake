@@ -31,9 +31,10 @@ configure_file(
 #-------------------------------------------------------------------------------
 # libsigrokdecode4DSL
 #
-# Its sources include the header with a plain "#include \"config.h\"" (no
-# relative ".."), so it can be generated into the binary directory and exposed
-# through an include directory. This keeps the source tree clean.
+# Its sources include the header with a plain "#include \"config.h\"", which
+# the compiler resolves against the library source directory. Generate it into
+# the source tree (as autotools does, and as .gitignore already expects) so the
+# include is found directly -- no binary-dir include hack required.
 #-------------------------------------------------------------------------------
 set(SRD_PACKAGE_TARNAME "libsigrokdecode4DSL")
 set(SRD_PACKAGE_VERSION_MAJOR ${DS_VERSION_MAJOR})
@@ -47,6 +48,5 @@ set(SRD_LIB_VERSION_STRING "${SRD_LIB_VERSION_CURRENT}.${SRD_LIB_VERSION_REVISIO
 
 configure_file(
 	${PROJECT_SOURCE_DIR}/libsigrokdecode4DSL/config.h.in
-	${PROJECT_BINARY_DIR}/libsigrokdecode4DSL/config.h
+	${PROJECT_SOURCE_DIR}/libsigrokdecode4DSL/config.h
 )
-include_directories(${PROJECT_BINARY_DIR}/libsigrokdecode4DSL)

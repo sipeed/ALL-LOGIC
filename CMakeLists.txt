@@ -35,9 +35,14 @@ set(DS_VERSION_MINOR 4)
 set(DS_VERSION_MICRO 0)
 set(DS_VERSION_STRING  ${DS_VERSION_MAJOR}.${DS_VERSION_MINOR}.${DS_VERSION_MICRO})
 
+# Generated into the source tree on purpose: DSView/main.cpp and
+# DSView/pv/dsvdef.h include it as "config.h" / "../config.h", which the
+# compiler resolves against the source directory and cannot be redirected
+# through include directories. This matches what autotools does upstream and
+# is already covered by .gitignore (DSView/config.h).
 configure_file (
 	${PROJECT_SOURCE_DIR}/DSView/config.h.in
-	${PROJECT_BINARY_DIR}/DSView/config.h
+	${PROJECT_SOURCE_DIR}/DSView/config.h
 )
 
 #-------------------------------------------------------------------------------
