@@ -35,10 +35,26 @@ set(DS_VERSION_MINOR 4)
 set(DS_VERSION_MICRO 0)
 set(DS_VERSION_STRING  ${DS_VERSION_MAJOR}.${DS_VERSION_MINOR}.${DS_VERSION_MICRO})
 
+# Generated into the source tree on purpose: DSView/main.cpp and
+# DSView/pv/dsvdef.h include it as "config.h" / "../config.h", which the
+# compiler resolves against the source directory and cannot be redirected
+# through include directories. This matches what autotools does upstream and
+# is already covered by .gitignore (DSView/config.h).
 configure_file (
 	${PROJECT_SOURCE_DIR}/DSView/config.h.in
-	${PROJECT_BINARY_DIR}/DSView/config.h
+	${PROJECT_SOURCE_DIR}/DSView/config.h
 )
+
+#-------------------------------------------------------------------------------
+#= per-library config headers
+#
+# libsigrok4DSL / libsigrokdecode4DSL expect a per-library "config.h" that
+# autotools generates upstream. When vendored into this CMake build that step
+# is missing, so the headers are produced automatically by a dedicated module.
+# Versions are derived from DS_VERSION_* (single source of truth).
+#-------------------------------------------------------------------------------
+
+include(${PROJECT_SOURCE_DIR}/CMake/ConfigHeaders.cmake)
 
 #===============================================================================
 #=pkg config
@@ -729,10 +745,9 @@ if(CMAKE_SYSTEM_NAME MATCHES "Linux")
 
 endif()
 
-install(FILES NEWS25 DESTINATION share/DSView RENAME NEWS25)
-install(FILES NEWS31 DESTINATION share/DSView RENAME NEWS31)
-install(FILES ug25.pdf DESTINATION share/DSView RENAME ug25.pdf)
-install(FILES ug31.pdf DESTINATION share/DSView RENAME ug31.pdf)
+# NOTE: NEWS25/NEWS31/ug25.pdf/ug31.pdf are not present in the source tree on
+# any platform, so the original install(FILES ...) rules referencing them are
+# dropped entirely (they would fail on both Windows and Linux).
 
 install(DIRECTORY libsigrokdecode4DSL/decoders DESTINATION share/libsigrokdecode4DSL)
 install(DIRECTORY lang DESTINATION share/DSView)

@@ -298,7 +298,7 @@ static int receive(const struct sr_output *o, const struct sr_datafeed_packet *p
                     pFlagCheck++;
                 }
 
-                g_string_append_printf(*out, tmp_buffer);
+                g_string_append(*out, tmp_buffer);
             }
 
             for (j = 0; j < ctx->num_enabled_channels; j++) {

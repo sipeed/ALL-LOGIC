@@ -1,0 +1,17 @@
+/*
+ * This file is part of the libsigrok4DSL project.
+ *
+ * It is generated from config.h.in by CMake's configure_file() at configure
+ * time. The upstream autotools-based build generates it via configure, but
+ * when libsigrok4DSL is vendored into the top-level CMake build that step is
+ * missing, so the header is produced here instead.
+ */
+
+#ifndef _LIBSIGROK4DSL_CONFIG_H
+#define _LIBSIGROK4DSL_CONFIG_H
+
+#define PACKAGE "@PACKAGE@"
+#define PACKAGE_VERSION "@PACKAGE_VERSION@"
+#define PACKAGE_STRING "@PACKAGE_STRING@"
+
+#endif /* _LIBSIGROK4DSL_CONFIG_H */
