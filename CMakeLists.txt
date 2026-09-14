@@ -514,6 +514,15 @@ set(libsigrok4DSL_SOURCES
     libsigrok4DSL/lib_main.c
 )
 
+# SLogic32U3 can deliver 800 MB/s. Its packet conversion is deliberately
+# optimized even in Debug builds so the USB producer cannot outrun the
+# session consumer while developers test the device.
+if (CMAKE_C_COMPILER_ID MATCHES "GNU|Clang")
+    set_source_files_properties(
+        libsigrok4DSL/hardware/sipeed-slogic/slogic16u3.c
+        PROPERTIES COMPILE_OPTIONS "-O3")
+endif()
+
 set(libsigrok4DSL_HEADERS
     libsigrok4DSL/version.h
     libsigrok4DSL/libsigrok-internal.h
@@ -617,6 +626,7 @@ add_definitions(-Wall -Wextra -Wno-return-type -Wno-ignored-qualifiers)
 add_definitions(
 	-DHAVE_ATKLOGIC_DEVICE=1
 	-DHAVE_FX2LAFW_DEVICE=1
+	-DHAVE_SLOGIC_DEVICE=1
 )
 
 if(NOT DISABLE_WERROR)
