@@ -589,6 +589,17 @@ static int slogic_ctrl_xfer(struct slogic_context *devc, int is_read,
 			       (unsigned)(addr + i), libusb_error_name(ret));
 			return SR_ERR;
 		}
+		/*
+		 * Register trace: with -l4 every register the driver touches
+		 * is visible, which makes it obvious that a capture start
+		 * only writes STOP/RUN plus the config blocks - never
+		 * CTRL=RST, which would silently discard the pattern
+		 * generator and vref setup the user selected.  There is no
+		 * control traffic while a capture streams, so this is cheap.
+		 */
+		sr_dbg("ctrl %s addr=0x%04x data=%02x %02x %02x %02x",
+		       is_read ? "rd" : "wr", (unsigned)(addr + i),
+		       data[i], data[i + 1], data[i + 2], data[i + 3]);
 	}
 	return SR_OK;
 }
@@ -1910,6 +1921,29 @@ static void slogic_finish_session(struct slogic_context *devc)
 		return;
 	devc->raw_pending_len = 0;
 	devc->fast_pending_len = 0;
+
+	/*
+	 * Report what the link actually delivered.  The analyzer streams a
+	 * 32ch@200MHz capture at about 800 MB/s, so this line is the quickest
+	 * way to tell "the device kept up" (stream window ~= the requested
+	 * duration) from "the device stalled and the host drained a partial
+	 * buffer".
+	 */
+	if (devc->transfers_time_start && devc->transfers_time_latest) {
+		double stream_s =
+			(double)(devc->transfers_time_latest -
+				 devc->transfers_time_start) / 1e6;
+		double total_s =
+			(double)(g_get_monotonic_time() -
+				 devc->transfers_time_start) / 1e6;
+		double mb = (double)devc->transfers_received_bytes / 1e6;
+
+		sr_info("stream done: %.1f MB in %.3f s (%.0f MB/s), "
+			"%.3f MSa, host tail %.0f ms",
+			mb, stream_s, stream_s > 0.0 ? mb / stream_s : 0.0,
+			(double)devc->num_samples / 1e6,
+			(total_s - stream_s) * 1000.0);
+	}
 
 	sr_info("send SR_DF_END, samples=%" PRIu64, devc->num_samples);
 	memset(&packet, 0, sizeof(packet));
