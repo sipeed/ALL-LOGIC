@@ -397,6 +397,9 @@ QJsonObject McpServer::handle_tools_list()
 			{"description", "buffer or stream"}};
 		p["enabled_channels"] = QJsonObject{{"type", "array"},
 			{"items", QJsonObject{{"type", "integer"}}}};
+		p["pattern"] = QJsonObject{{"type", "string"},
+			{"description", "Device test pattern, e.g. Normal, "
+					 "USB connection test, Emulation"}};
 		tools.append(tool_schema("configure",
 			"Set sample rate, depth, threshold, channels.", p, QJsonArray()));
 	}
@@ -567,17 +570,23 @@ QJsonObject McpServer::tool_get_status()
 {
 	SigSession *ss = session();
 	DeviceAgent *dev = ss ? ss->get_device() : NULL;
+	const bool have_device = dev && dev->have_instance();
 	QJsonObject o;
 	o["mcp"] = url();
 	o["mcp_running"] = is_running();
-	o["have_device"] = dev && dev->have_instance();
-	o["device"] = dev ? dev->name() : "";
-	o["driver"] = dev ? dev->driver_name() : "";
+	o["have_device"] = have_device;
+	o["device"] = have_device ? dev->name() : "";
+	o["driver"] = have_device ? dev->driver_name() : "";
 	o["capturing"] = ss && ss->is_working();
-	o["samplerate_hz"] = (qint64)(dev ? dev->get_sample_rate() : 0);
-	o["sample_count"] = (qint64)(dev ? dev->get_sample_limit() : 0);
-	o["work_mode"] = dev ? dev->get_work_mode() : -1;
-	o["stream"] = dev && dev->is_stream_mode();
+	o["samplerate_hz"] = (qint64)(have_device ? dev->get_sample_rate() : 0);
+	o["sample_count"] = (qint64)(have_device ? dev->get_sample_limit() : 0);
+	o["work_mode"] = have_device ? dev->get_work_mode() : -1;
+	o["stream"] = have_device && dev->is_stream_mode();
+	if (have_device) {
+		QString pattern;
+		if (dev->get_config_string(SR_CONF_PATTERN_MODE, pattern))
+			o["pattern"] = pattern;
+	}
 	if (ss) {
 		data::Snapshot *snap = ss->get_snapshot(SR_CHANNEL_LOGIC);
 		o["captured_samples"] = snap ? (qint64)snap->get_sample_count() : 0;
@@ -639,6 +648,13 @@ QJsonObject McpServer::tool_configure(const QJsonObject &args)
 	if (args.contains("vth")) {
 		dev->set_config_double(SR_CONF_VTH, args.value("vth").toDouble());
 		done << "vth";
+	}
+	if (args.contains("pattern")) {
+		QString pattern = args.value("pattern").toString();
+		if (!dev->set_config_string(SR_CONF_PATTERN_MODE,
+					    pattern.toUtf8().constData()))
+			return tool_text("failed to set pattern: " + pattern, true);
+		done << "pattern";
 	}
 	if (args.contains("enabled_channels") && args.value("enabled_channels").isArray()) {
 		QJsonArray want = args.value("enabled_channels").toArray();
