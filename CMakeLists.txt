@@ -740,18 +740,16 @@ install(FILES DSView/icons/logo.svg DESTINATION share/DSView RENAME logo.svg)
 install(FILES DSView/icons/logo.svg DESTINATION share/icons/hicolor/scalable/apps RENAME dsview.svg)
 install(FILES DSView/icons/logo.svg DESTINATION share/pixmaps RENAME dsview.svg)
 
-if(CMAKE_SYSTEM_NAME MATCHES "Linux")	
-	install(FILES DSView/DSView.desktop DESTINATION /usr/share/applications RENAME dsview.desktop)
-	
+if(CMAKE_SYSTEM_NAME MATCHES "Linux")
+	# Keep every destination relative to CMAKE_INSTALL_PREFIX so that staged
+	# installs (cmake --install build.dir --prefix dist) work without root.
+	# Installing with -DCMAKE_INSTALL_PREFIX=/usr still lands in the usual
+	# system locations.
+	install(FILES DSView/DSView.desktop DESTINATION share/applications RENAME dsview.desktop)
+
 	add_compile_definitions(_DEFAULT_SOURCE)
 
-	if(IS_DIRECTORY /usr/lib/udev/rules.d)
-		install(FILES DSView/DreamSourceLab.rules DESTINATION /usr/lib/udev/rules.d RENAME 60-dreamsourcelab.rules)
-	elseif(IS_DIRECTORY /lib/udev/rules.d)
-		install(FILES DSView/DreamSourceLab.rules DESTINATION /lib/udev/rules.d RENAME 60-dreamsourcelab.rules)
-	elseif(IS_DIRECTORY /etc/udev/rules.d)
-		install(FILES DSView/DreamSourceLab.rules DESTINATION /etc/udev/rules.d RENAME 60-dreamsourcelab.rules)
-	endif()
+	install(FILES DSView/DreamSourceLab.rules DESTINATION lib/udev/rules.d RENAME 60-dreamsourcelab.rules)
 
 endif()
 
@@ -787,5 +785,3 @@ if(ENABLE_TESTS)
 	enable_testing()
 	add_test(test ${CMAKE_CURRENT_BINARY_DIR}/DSView/test/DSView-test)
 endif(ENABLE_TESTS)
-
-
