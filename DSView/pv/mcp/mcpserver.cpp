@@ -84,6 +84,8 @@ void McpServer::stop()
 		_server = NULL;
 	}
 	_bufs.clear();
+	_busy.clear();
+	_dying.clear();
 }
 
 bool McpServer::is_running() const
@@ -124,7 +126,16 @@ void McpServer::on_disconnected()
 	if (!sock)
 		return;
 	_bufs.remove(sock);
-	sock->deleteLater();
+	/*
+	 * The tools that wait for a capture run a nested event loop, so the
+	 * socket may still be on the stack inside handle_http().  Deleting it
+	 * here would let handle_http()/send_http() write through a dangling
+	 * pointer afterwards.  Mark it for deletion after the handler returns.
+	 */
+	if (_busy.value(sock, 0) > 0)
+		_dying.insert(sock);
+	else
+		sock->deleteLater();
 }
 
 void McpServer::on_ready_read()
@@ -133,9 +144,11 @@ void McpServer::on_ready_read()
 	if (!sock)
 		return;
 	_bufs[sock] += sock->readAll();
-	QByteArray &buf = _bufs[sock];
 
 	for (;;) {
+		if (!_bufs.contains(sock))
+			return;
+		QByteArray &buf = _bufs[sock];
 		int hdr = buf.indexOf("\r\n\r\n");
 		if (hdr < 0)
 			return;
@@ -151,7 +164,24 @@ void McpServer::on_ready_read()
 			return;
 		QByteArray msg = buf.left(total);
 		buf.remove(0, total);
+		_busy[sock] = _busy.value(sock, 0) + 1;
 		handle_http(sock, msg);
+		int depth = _busy.value(sock, 0) - 1;
+		if (depth > 0)
+			_busy[sock] = depth;
+		else
+			_busy.remove(sock);
+		if (depth <= 0 && _dying.remove(sock)) {
+			sock->deleteLater();
+			return;
+		}
+		/*
+		 * send_http() closes the connection.  The resulting disconnected
+		 * signal may remove the socket's entry from _bufs before control
+		 * returns here, so do not touch the reference on another iteration.
+		 */
+		if (!_bufs.contains(sock))
+			return;
 	}
 }
 
