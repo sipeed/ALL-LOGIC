@@ -1168,8 +1168,6 @@ static void slogic_forward_cross(struct slogic_context *devc, int out_len)
 	devc->num_bytes += (uint64_t)out_len;
 }
 
-/* Fast path for the normal U3 wire format.  It does 8x8 bit transposes
-	 * instead of testing every bit of every sample in nested loops. */
 /* Convert `groups` complete 64-sample groups starting at src into the channel
  * planes at dst.  Groups are independent and each one writes exactly
  * SLOGIC_CROSS_PLANE_BYTES * en bytes at a fixed offset, so a group range can
@@ -1694,7 +1692,7 @@ static void LIBUSB_CALL receive_transfer(struct libusb_transfer *transfer)
 		if (!expected_cancel) {
 			sr_err("bulk transfer status %d (%s)", transfer->status,
 				libusb_error_name(transfer->status));
-		g_atomic_int_set(&devc->discard_queue, 1);
+			g_atomic_int_set(&devc->discard_queue, 1);
 		}
 		g_atomic_int_set(&devc->abort, 1);
 		devc->status = SLOGIC_ST_STOP;
