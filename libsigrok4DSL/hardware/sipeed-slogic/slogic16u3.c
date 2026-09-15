@@ -544,6 +544,8 @@ static int slogic_rate_list_add(uint64_t *out, int n, int cap, uint64_t r)
 static void slogic_build_rate_list(const struct slogic_context *devc,
 				   uint64_t *out, int *out_n)
 {
+	/* The caller must size `out` for the whole list (32 entries max) plus
+	 * the 0 terminator written below. */
 	uint64_t link_max = slogic_link_max_rate(devc);
 	const struct slogic_model *model = devc && devc->model ?
 		devc->model : &slogic_models[1];
@@ -2643,7 +2645,8 @@ static int config_list(int key, GVariant **data, const struct sr_dev_inst *sdi,
 			ARRAY_SIZE(sessions) * sizeof(int32_t), TRUE, NULL, NULL);
 		break;
 	case SR_CONF_SAMPLERATE: {
-		static uint64_t rate_buf[32];
+		/* Must hold the whole rate list plus its 0 terminator. */
+		static uint64_t rate_buf[33];
 		int rate_n = 0;
 		const struct slogic_context *devc =
 			(sdi && sdi->priv) ? (const struct slogic_context *)sdi->priv
