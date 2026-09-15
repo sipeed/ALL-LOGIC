@@ -4,28 +4,11 @@ ALL LOGIC 二次开发记录。上游 DSView 历史见 `DSView/NEWS`。
 
 ---
 
-## 1.4.0 — 2026-08-20
+## Unreleased
 
 ### 新增设备支持
 
-- **ATK-Logic**（正点原子 DL16 等）— USB `1A86:FFCC`，按 [官方上位机](https://github.com/alientek-openedv/atk-logic) 协议移植的社区驱动。支持识别、滚动 / 重复 / 缓冲采集（不含 PWM 设置界面）。
-- **nanoDLA / Cypress FX2（fx2lafw）** — USB `1D50:608C`（8 通道）/ `1D50:608D`（16 通道）。
-- **Sipeed SLogic Combo 8 / SLogic16U3 / SLogic32U3** — USB `359F:0300`、`359F:3031`、`359F:3032`；按 `slogic-dev` 协议支持型号对应的通道、采样率、端点和数据打包。
-
-原 DSView 已支持的 DreamSourceLab 仪器，以及此前接入的 CH32H417、PXLogic32U3，仍然可用。
-
-### ATK-Logic
-
-- 流式采样率按官方规则 `Hz × 通道数 ≤ 320e6`（16 通道上限 20 MHz）。缓冲模式 USB2 DL16 仍可到 250 MHz。
-- USB2 设备不再误报「低速 / 请改插 USB3」。
-- 滚动、重复、缓冲采集对齐官方组帧与解析；滚动窗口不再 16 MSa 就停。
-- 修复高速采集一段时间后卡住、数据不再上传（Windows 上异步 IN 过程中同步 OUT 会死锁）。
-- 不再给滞后通道补零，避免时间轴错位。
-
-### nanoDLA / FX2
-
-- 已在运行 fx2lafw 时不再重复下载 RAM 固件（与 PulseView 一致）；仅真正的裸 FX2 才会上传。
-- 不再匹配 Cypress 引导 `04B4:8613`，避免插入 DSLogic 时先显示成 nano。
+- **Sipeed SLogic Combo 8 / SLogic32U3** — USB `359F:0300`、`359F:3032`；按 `slogic-dev` 协议支持型号对应的通道、采样率、端点和数据打包。同族的 SLogic16U3（`359F:3031`）一并纳入这个统一型号表。
 
 ### SLogic32U3
 
@@ -40,7 +23,34 @@ ALL LOGIC 二次开发记录。上游 DSView 历史见 `DSView/NEWS`。
 - 长采集不再被误判为 stall：主机侧转置 + 写快照约 670 MB/s，低于设备的 790 MB/s，采到 3 秒左右设备端会出现反压、传输变慢。参考实现把「传输比预期慢」直接判为致命，本驱动照搬后 4 秒采集会在 621 MSa 提前结束（同一请求 sigrok-cli 能跑完，代价是 7.44 s）。现在区分两种情况：**一个字节都没来过**（固件吞掉 RUN）沿用原来的连续判定 + 重发一次 RUN，保证不会出现「永远卡在采集中」；**数据已在流动**则只有整整 1 秒完全没有字节才算真死，慢只是按主机节奏排空（`-l4` 有 `USB link slower than the analyzer` 提示）。实测 1 s / 2 s / 4 s @200MHz/32ch 分别 100% / 100% / 100% 满额（4 s 用时 4.85 s，参考 7.44 s）。
 - 每次采集结束会打印一行实测吞吐：`stream done: 800.0 MB in 1.009 s (793 MB/s), 200.000 MSa, host tail 204 ms`，把「设备是否满速」「主机转置落后多少」变成一眼可见的数字。
 - 与官方 `sigrok-cli`（1.1.0 AppImage）对照：同样 32ch@200MHz 1s 背靠背采集，参考实现 30 次里 15 次只写出 12 字节的 `FRAME-BEGIN`（0 个样本），加 1 秒 / 5 秒间隔仍各只有 6/12 成功；本驱动同样条件 48/48 满额（另一轮 47/48），1 s 数据约 1.27–1.35 s 真实时间完成。
+
+### 其它
+
 - `cmake --install --prefix <dir>` 现在能装全：安装规则改用相对路径，不再因为写入 `/usr` 而中断，`share/DSView` 与解码器都会落到指定前缀。
+
+---
+
+## 1.4.0 — 2026-08-20
+
+### 新增设备支持
+
+- **ATK-Logic**（正点原子 DL16 等）— USB `1A86:FFCC`，按 [官方上位机](https://github.com/alientek-openedv/atk-logic) 协议移植的社区驱动。支持识别、滚动 / 重复 / 缓冲采集（不含 PWM 设置界面）。
+- **nanoDLA / Cypress FX2（fx2lafw）** — USB `1D50:608C`（8 通道）/ `1D50:608D`（16 通道）。
+
+原 DSView 已支持的 DreamSourceLab 仪器，以及此前接入的 CH32H417、SLogic16U3、PXLogic32U3，仍然可用。
+
+### ATK-Logic
+
+- 流式采样率按官方规则 `Hz × 通道数 ≤ 320e6`（16 通道上限 20 MHz）。缓冲模式 USB2 DL16 仍可到 250 MHz。
+- USB2 设备不再误报「低速 / 请改插 USB3」。
+- 滚动、重复、缓冲采集对齐官方组帧与解析；滚动窗口不再 16 MSa 就停。
+- 修复高速采集一段时间后卡住、数据不再上传（Windows 上异步 IN 过程中同步 OUT 会死锁）。
+- 不再给滞后通道补零，避免时间轴错位。
+
+### nanoDLA / FX2
+
+- 已在运行 fx2lafw 时不再重复下载 RAM 固件（与 PulseView 一致）；仅真正的裸 FX2 才会上传。
+- 不再匹配 Cypress 引导 `04B4:8613`，避免插入 DSLogic 时先显示成 nano。
 
 ### 其它
 
@@ -60,14 +70,11 @@ ALL LOGIC 二次开发记录。上游 DSView 历史见 `DSView/NEWS`。
 
 ## English
 
-### 1.4.0 — 2026-08-20
+### Unreleased
 
 **Added**
 
-- ATK-Logic (Alientek DL16 and similar), USB `1A86:FFCC`. Community driver ported from the [official host](https://github.com/alientek-openedv/atk-logic). Identify plus stream / repeat / buffer capture (no PWM UI).
-- nanoDLA / Cypress FX2 via fx2lafw, USB `1D50:608C` (8ch) / `1D50:608D` (16ch).
-- Sipeed SLogic Combo 8 / SLogic16U3 / SLogic32U3, USB `359F:0300`, `359F:3031`, and `359F:3032`, using the model-specific `slogic-dev` endpoints, rate tables, and packed sample formats.
-- Optional installer component to associate `.dsl` session files with ALL LOGIC.
+- Sipeed SLogic Combo 8 / SLogic32U3, USB `359F:0300` and `359F:3032`, using the model-specific `slogic-dev` endpoints, rate tables, and packed sample formats. The related SLogic16U3 (`359F:3031`) now shares the same model table.
 
 **SLogic32U3**
 
@@ -82,7 +89,20 @@ ALL LOGIC 二次开发记录。上游 DSView 历史见 `DSView/NEWS`。
 - Long captures are no longer misread as stalls: the host converts and appends at roughly 670 MB/s while the analyzer produces 790 MB/s, so after about three seconds the device throttles itself and every transfer looks slow. The reference treats a slow transfer as fatal, and copying that aborted a 4 s capture at 621 MSa (sigrok-cli finishes the same request, taking 7.44 s to do it). The driver now separates the two cases: while **not a single byte has arrived** (firmware swallowed RUN) the original consecutive-failure rule plus the one-shot RUN retry still guarantee the capture cannot hang in "capturing"; once **data is flowing**, only a full second of complete silence is fatal and a slow link is simply drained at the host's pace (`-l4` prints `USB link slower than the analyzer`). Measured: 1 s / 2 s / 4 s @200MHz/32ch all complete at 100%, with the 4 s run taking 4.85 s against the reference's 7.44 s.
 - Every capture now logs its measured throughput, e.g. `stream done: 800.0 MB in 1.009 s (793 MB/s), 200.000 MSa, host tail 204 ms`, so "did the device run at full speed" and "how far behind is the host transpose" are single visible numbers.
 - Compared against the official `sigrok-cli` (1.1.0 AppImage) under the same 32ch@200MHz 1 s back-to-back load: the reference produced only the 12-byte `FRAME-BEGIN` file (0 samples) in 15 of 30 runs, and still only 6 of 12 runs with a 1 s or 5 s gap in between; this driver completed 48 of 48 (and 47 of 48 in a second run), with 1 s of samples taking 1.27-1.35 s of wall clock.
+
+**Other**
+
 - `cmake --install --prefix <dir>` no longer aborts partway through: install rules use relative paths, so `share/DSView`, decoders and everything else land under the requested prefix.
+
+---
+
+### 1.4.0 — 2026-08-20
+
+**Added**
+
+- ATK-Logic (Alientek DL16 and similar), USB `1A86:FFCC`. Community driver ported from the [official host](https://github.com/alientek-openedv/atk-logic). Identify plus stream / repeat / buffer capture (no PWM UI).
+- nanoDLA / Cypress FX2 via fx2lafw, USB `1D50:608C` (8ch) / `1D50:608D` (16ch).
+- Optional installer component to associate `.dsl` session files with ALL LOGIC.
 
 **ATK-Logic**
 
