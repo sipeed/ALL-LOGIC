@@ -161,11 +161,11 @@ static const uint64_t slogic_16u3_limit_rates[] = {
 static const uint64_t slogic_32u3_rates[] = {
 	SR_MHZ(5), SR_MHZ(8), SR_MHZ(10), SR_MHZ(16), SR_MHZ(20), SR_MHZ(25),
 	SR_MHZ(32), SR_MHZ(40), SR_MHZ(50), SR_MHZ(80), SR_MHZ(100),
-	SR_MHZ(160), SR_MHZ(200), SR_MHZ(400), SR_MHZ(800), SR_MHZ(1600),
+	SR_MHZ(160), SR_MHZ(200), SR_MHZ(400), SR_MHZ(800), SR_MHZ(1400),
 };
 static const int slogic_32u3_channels[] = { 32, 16, 8, 4 };
 static const uint64_t slogic_32u3_limit_rates[] = {
-	SR_MHZ(200), SR_MHZ(400), SR_MHZ(800), SR_MHZ(1600),
+	SR_MHZ(200), SR_MHZ(400), SR_MHZ(800), SR_MHZ(1400),
 };
 
 static const struct sr_list_item filter_list[] = {
@@ -197,7 +197,7 @@ static const struct sr_list_item channel_mode_32u3_list[] = {
 	{ 0, "Use Channels 0~31 (Max 200MHz)" },
 	{ 1, "Use Channels 0~15 (Max 400MHz)" },
 	{ 2, "Use Channels 0~7 (Max 800MHz)" },
-	{ 3, "Use Channels 0~3 (Max 1600MHz)" },
+	{ 3, "Use Channels 0~3 (Max 1400MHz)" },
 	{ -1, NULL },
 };
 
