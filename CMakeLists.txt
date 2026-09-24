@@ -507,6 +507,10 @@ set(libsigrok4DSL_SOURCES
     libsigrok4DSL/hardware/DSL/dsl.c
     libsigrok4DSL/hardware/CH32/ch32_logic.c
     libsigrok4DSL/hardware/sipeed-slogic/slogic16u3.c
+    libsigrok4DSL/hardware/sipeed-slogic/slogic/slogic.c
+    libsigrok4DSL/hardware/sipeed-slogic/slogic/slogic8u2.c
+    libsigrok4DSL/hardware/sipeed-slogic/slogic/slogic16u3.c
+    libsigrok4DSL/hardware/sipeed-slogic/slogic/slogic32u3.c
     libsigrok4DSL/hardware/pxlogic/usb_ctrl.c
     libsigrok4DSL/hardware/pxlogic/pxlogic.c
     libsigrok4DSL/hardware/atk-logic/atk_logic.c

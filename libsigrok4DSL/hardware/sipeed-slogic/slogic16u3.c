@@ -29,14 +29,11 @@
 #include "../../libsigrok-internal.h"
 #include "../../log.h"
 #include "slogic16u3.h"
+#include "slogic/slogic.h"
 
 #undef LOG_PREFIX
 #define LOG_PREFIX "slogic16u3: "
 
-#define SLOGIC_VID               0x359F
-#define SLOGIC_PID_COMBO8        0x0300
-#define SLOGIC_PID_16U3          0x3031
-#define SLOGIC_PID_32U3          0x3032
 
 #define SLOGIC_EP_COMBO8_IN      0x81
 #define SLOGIC_EP_U3_IN           0x82
@@ -113,60 +110,8 @@ enum {
 	SLOGIC_CHMODE_4 = 2,
 };
 
-enum slogic_protocol {
-	SLOGIC_PROTO_COMBO8,
-	SLOGIC_PROTO_U3,
-};
 
-struct slogic_model {
-	const char *name;
-	uint16_t pid;
-	uint8_t ep_in;
-	int physical_channels;
-	enum slogic_protocol protocol;
-	uint64_t max_bandwidth;
-	const uint64_t *rates;
-	size_t rate_count;
-	const int *channel_counts;
-	size_t channel_count_count;
-	const uint64_t *limit_rates;
-	gboolean usb3_capable;
-	uint64_t hw_depth;
-};
 
-/* These are the rate/channel combinations advertised by slogic-dev. */
-static const uint64_t slogic_combo8_rates[] = {
-	SR_MHZ(1), SR_MHZ(2), SR_MHZ(4), SR_MHZ(5), SR_MHZ(8), SR_MHZ(10),
-	SR_MHZ(16), SR_MHZ(20), SR_MHZ(32), SR_MHZ(40), SR_MHZ(80), SR_MHZ(160),
-};
-static const int slogic_combo8_channels[] = { 8, 4, 2 };
-static const uint64_t slogic_combo8_limit_rates[] = {
-	SR_MHZ(40), SR_MHZ(80), SR_MHZ(160),
-};
-
-static const uint64_t slogic_16u3_rates[] = {
-	SR_MHZ(5), SR_MHZ(8), SR_MHZ(10), SR_MHZ(16), SR_MHZ(20), SR_MHZ(25),
-	SR_MHZ(32), SR_MHZ(40), SR_MHZ(50), SR_MHZ(80), SR_MHZ(100),
-	SR_MHZ(160), SR_MHZ(200), SR_MHZ(400), SR_MHZ(800),
-};
-static const int slogic_16u3_channels[] = { 16, 8, 4 };
-static const uint64_t slogic_16u3_limit_rates[] = {
-#ifdef _WIN32
-	SR_MHZ(100), SR_MHZ(200), SR_MHZ(400),
-#else
-	SR_MHZ(200), SR_MHZ(400), SR_MHZ(800),
-#endif
-};
-
-static const uint64_t slogic_32u3_rates[] = {
-	SR_MHZ(5), SR_MHZ(8), SR_MHZ(10), SR_MHZ(16), SR_MHZ(20), SR_MHZ(25),
-	SR_MHZ(32), SR_MHZ(40), SR_MHZ(50), SR_MHZ(80), SR_MHZ(100),
-	SR_MHZ(160), SR_MHZ(200), SR_MHZ(400), SR_MHZ(800), SR_MHZ(1400),
-};
-static const int slogic_32u3_channels[] = { 32, 16, 8, 4 };
-static const uint64_t slogic_32u3_limit_rates[] = {
-	SR_MHZ(200), SR_MHZ(400), SR_MHZ(800), SR_MHZ(1400),
-};
 
 static const struct sr_list_item filter_list[] = {
 	{ SR_FILTER_NONE, "None" },
@@ -236,53 +181,6 @@ static const char *probe_names[] = {
 	NULL,
 };
 
-static const struct slogic_model slogic_models[] = {
-	{
-		.name = "SLogic Combo 8",
-		.pid = SLOGIC_PID_COMBO8,
-		.ep_in = SLOGIC_EP_COMBO8_IN,
-		.physical_channels = 8,
-		.protocol = SLOGIC_PROTO_COMBO8,
-		.max_bandwidth = SR_MHZ(320),
-		.rates = slogic_combo8_rates,
-		.rate_count = ARRAY_SIZE(slogic_combo8_rates),
-		.channel_counts = slogic_combo8_channels,
-		.channel_count_count = ARRAY_SIZE(slogic_combo8_channels),
-		.limit_rates = slogic_combo8_limit_rates,
-		.usb3_capable = FALSE,
-		.hw_depth = SLOGIC_HW_DEPTH,
-	},
-	{
-		.name = "SLogic16U3",
-		.pid = SLOGIC_PID_16U3,
-		.ep_in = SLOGIC_EP_U3_IN,
-		.physical_channels = 16,
-		.protocol = SLOGIC_PROTO_U3,
-		.max_bandwidth = SR_MHZ(3200),
-		.rates = slogic_16u3_rates,
-		.rate_count = ARRAY_SIZE(slogic_16u3_rates),
-		.channel_counts = slogic_16u3_channels,
-		.channel_count_count = ARRAY_SIZE(slogic_16u3_channels),
-		.limit_rates = slogic_16u3_limit_rates,
-		.usb3_capable = TRUE,
-		.hw_depth = SLOGIC_HW_DEPTH,
-	},
-	{
-		.name = "SLogic32U3",
-		.pid = SLOGIC_PID_32U3,
-		.ep_in = SLOGIC_EP_U3_IN,
-		.physical_channels = 32,
-		.protocol = SLOGIC_PROTO_U3,
-		.max_bandwidth = SR_MHZ(6400),
-		.rates = slogic_32u3_rates,
-		.rate_count = ARRAY_SIZE(slogic_32u3_rates),
-		.channel_counts = slogic_32u3_channels,
-		.channel_count_count = ARRAY_SIZE(slogic_32u3_channels),
-		.limit_rates = slogic_32u3_limit_rates,
-		.usb3_capable = TRUE,
-		.hw_depth = SLOGIC_HW_DEPTH,
-	},
-};
 
 struct slogic_context {
 	const struct slogic_model *model;
@@ -397,23 +295,13 @@ static const char *slogic_speed_name(enum libusb_speed sp)
 	}
 }
 
-static const struct slogic_model *slogic_model_for_pid(uint16_t pid)
-{
-	unsigned int i;
-
-	for (i = 0; i < ARRAY_SIZE(slogic_models); i++) {
-		if (slogic_models[i].pid == pid)
-			return &slogic_models[i];
-	}
-	return NULL;
-}
 
 static const struct sr_list_item *slogic_channel_mode_list(
 		const struct slogic_model *model)
 {
 	if (!model)
 		return channel_mode_16u3_list;
-	if (model->protocol == SLOGIC_PROTO_COMBO8)
+	if (model->proto == SLOGIC_PROTO_COMBO8)
 		return channel_mode_combo8_list;
 	if (model->physical_channels == 32)
 		return channel_mode_32u3_list;
@@ -423,9 +311,9 @@ static const struct sr_list_item *slogic_channel_mode_list(
 static int slogic_mode_channels(const struct slogic_context *devc, int mode)
 {
 	if (!devc || !devc->model || mode < 0 ||
-		(size_t)mode >= devc->model->channel_count_count)
+		(size_t)mode >= devc->model->limit_count)
 		return 16;
-	return devc->model->channel_counts[mode];
+	return (devc->model->physical_channels >> (mode));
 }
 
 static uint64_t slogic_link_max_rate(const struct slogic_context *devc)
@@ -435,17 +323,17 @@ static uint64_t slogic_link_max_rate(const struct slogic_context *devc)
 	uint64_t limit;
 
 	if (!model)
-		model = &slogic_models[1];
-	if (mode < 0 || (size_t)mode >= model->channel_count_count)
+		model = slogic_model_for_pid(SLOGIC_PID_16U3);
+	if (mode < 0 || (size_t)mode >= model->limit_count)
 		mode = 0;
 
 	/* The reference driver publishes one limit for each channel mode. */
-	limit = model->limit_rates[mode];
+	limit = slogic_max_rate(model, model->physical_channels >> (mode));
 	/* U3 analyzers also enumerate through USB high-speed.  Keep the rate
 	 * within the practical USB2 payload limit when the link is known. */
-	if (devc && model->protocol == SLOGIC_PROTO_U3 &&
+	if (devc && model->proto == SLOGIC_PROTO_U3 &&
 		devc->usb_speed != LIBUSB_SPEED_UNKNOWN && !slogic_is_usb3(devc)) {
-		int nch = model->channel_counts[mode];
+		int nch = (model->physical_channels >> (mode));
 		uint64_t usb2_limit = SR_MHZ(320) / (uint64_t)nch;
 		if (limit > usb2_limit)
 			limit = usb2_limit;
@@ -461,7 +349,7 @@ static void slogic_apply_model_name(struct sr_dev_inst *sdi,
 
 	if (!sdi || !model)
 		return;
-	if (model->protocol == SLOGIC_PROTO_COMBO8 || sp == LIBUSB_SPEED_UNKNOWN)
+	if (model->proto == SLOGIC_PROTO_COMBO8 || sp == LIBUSB_SPEED_UNKNOWN)
 		name = g_strdup(model->name);
 	else if (sp == LIBUSB_SPEED_SUPER || sp == LIBUSB_SPEED_SUPER_PLUS)
 		name = g_strdup_printf("%s USB3.0", model->name);
@@ -491,7 +379,7 @@ static uint64_t slogic_pick_rate(const struct slogic_context *devc,
 {
 	unsigned int i;
 	const struct slogic_model *model = devc && devc->model ?
-		devc->model : &slogic_models[1];
+		devc->model : slogic_model_for_pid(SLOGIC_PID_16U3);
 	uint64_t link_max = slogic_link_max_rate(devc);
 	uint64_t best = 0;
 	uint64_t best_err = UINT64_MAX;
@@ -548,7 +436,7 @@ static void slogic_build_rate_list(const struct slogic_context *devc,
 	 * the 0 terminator written below. */
 	uint64_t link_max = slogic_link_max_rate(devc);
 	const struct slogic_model *model = devc && devc->model ?
-		devc->model : &slogic_models[1];
+		devc->model : slogic_model_for_pid(SLOGIC_PID_16U3);
 	unsigned int i;
 	int n = 0;
 	const int cap = 32;
@@ -563,324 +451,75 @@ static void slogic_build_rate_list(const struct slogic_context *devc,
 
 /* -------------------- register / AUX -------------------- */
 
-static int slogic_ctrl_xfer(struct slogic_context *devc, int is_read,
-			    uint16_t addr, uint8_t *data, size_t len)
-{
-	int ret;
-	size_t i;
-	uint8_t bm;
-
-	if (!devc || !devc->devhdl || (!data && len))
-		return SR_ERR_ARG;
-	if (!len)
-		return SR_OK;
-
-	len = (len + 3) & ~(size_t)3;
-	bm = (uint8_t)(LIBUSB_REQUEST_TYPE_VENDOR | LIBUSB_RECIPIENT_DEVICE |
-		       (is_read ? LIBUSB_ENDPOINT_IN : LIBUSB_ENDPOINT_OUT));
-
-	for (i = 0; i < len; i += 4) {
-		ret = libusb_control_transfer(
-			devc->devhdl, bm,
-			is_read ? SLOGIC_REQ_REG_READ : SLOGIC_REQ_REG_WRITE,
-			(uint16_t)(addr + i), 0, data + i, 4,
-			SLOGIC_CTRL_TIMEOUT_MS);
-		if (ret < 0 || ret != 4) {
-			sr_err("ctrl %s addr=0x%04x failed: %s",
-			       is_read ? "read" : "write",
-			       (unsigned)(addr + i), libusb_error_name(ret));
-			return SR_ERR;
-		}
-		/*
-		 * Register trace: with -l4 every register the driver touches
-		 * is visible, which makes it obvious that a capture start
-		 * only writes STOP/RUN plus the config blocks - never
-		 * CTRL=RST, which would silently discard the pattern
-		 * generator and vref setup the user selected.  There is no
-		 * control traffic while a capture streams, so this is cheap.
-		 */
-		sr_dbg("ctrl %s addr=0x%04x data=%02x %02x %02x %02x",
-		       is_read ? "rd" : "wr", (unsigned)(addr + i),
-		       data[i], data[i + 1], data[i + 2], data[i + 3]);
-	}
-	return SR_OK;
-}
-
 /* Combo 8 has a small command protocol rather than the U3 register map. */
-static int slogic_combo_control(struct slogic_context *devc, uint8_t request,
-				uint8_t *data, uint16_t len)
+/* -------------------- shared-core transport shim (P2) --------------------
+ * The register/AUX protocol lives once in the vendored slogic/ core; this
+ * adapter only provides the USB control-transfer transport and maps the
+ * DSView-side config into a slogic_config, then calls slogic_reset/configure/
+ * run/stop. */
+static int al_ctrl_write(void *ctx, uint8_t b_request, uint16_t w_value,
+			 uint16_t w_index, const uint8_t *data,
+			 uint16_t len, unsigned timeout_ms)
 {
-	int ret;
-	uint8_t bm = (uint8_t)(LIBUSB_REQUEST_TYPE_VENDOR |
-		LIBUSB_RECIPIENT_DEVICE | LIBUSB_ENDPOINT_OUT);
+	struct slogic_context *devc = ctx;
 
-	if (!devc || !devc->devhdl || (!data && len))
+	return libusb_control_transfer(devc->devhdl,
+		LIBUSB_REQUEST_TYPE_VENDOR | LIBUSB_ENDPOINT_OUT, b_request,
+		w_value, w_index, (unsigned char *)data, len, (int)timeout_ms);
+}
+
+static int al_ctrl_read(void *ctx, uint8_t b_request, uint16_t w_value,
+			uint16_t w_index, uint8_t *data, uint16_t len,
+			unsigned timeout_ms)
+{
+	struct slogic_context *devc = ctx;
+
+	return libusb_control_transfer(devc->devhdl,
+		LIBUSB_REQUEST_TYPE_VENDOR | LIBUSB_ENDPOINT_IN, b_request,
+		w_value, w_index, data, len, (int)timeout_ms);
+}
+
+static void al_transport(struct slogic_context *devc, slogic_transport *t)
+{
+	t->ctx = devc;
+	t->control_write = al_ctrl_write;
+	t->control_read = al_ctrl_read;
+}
+
+static void al_config(struct slogic_context *devc, slogic_config *c)
+{
+	*c = (slogic_config){
+		.channel_count = devc->channel_count,
+		.samplerate_hz = devc->samplerate,
+		.threshold_v = devc->vth,
+		.pattern_mode = devc->pattern_mode,
+	};
+}
+
+static int slogic_hw_reset(struct slogic_context *devc)
+{
+	slogic_transport t;
+
+	if (!devc || !devc->model)
 		return SR_ERR_ARG;
-	ret = libusb_control_transfer(devc->devhdl, bm, request, 0, 0,
-			data, len, SLOGIC_CTRL_TIMEOUT_MS);
-	if (ret < 0 || ret != (int)len) {
-		sr_err("Combo8 command 0x%02x failed: %s", request,
-			ret < 0 ? libusb_error_name(ret) : "short transfer");
-		return SR_ERR;
-	}
-	return SR_OK;
-}
-
-static int slogic_wr32(struct slogic_context *devc, uint16_t addr, uint32_t v)
-{
-	uint8_t b[4];
-
-	b[0] = (uint8_t)(v);
-	b[1] = (uint8_t)(v >> 8);
-	b[2] = (uint8_t)(v >> 16);
-	b[3] = (uint8_t)(v >> 24);
-	return slogic_ctrl_xfer(devc, 0, addr, b, 4);
-}
-
-static int slogic_rd32(struct slogic_context *devc, uint16_t addr, uint32_t *out)
-{
-	uint8_t b[4];
-	int ret;
-
-	ret = slogic_ctrl_xfer(devc, 1, addr, b, 4);
-	if (ret != SR_OK)
-		return ret;
-	*out = (uint32_t)b[0] | ((uint32_t)b[1] << 8) |
-	       ((uint32_t)b[2] << 16) | ((uint32_t)b[3] << 24);
-	return SR_OK;
-}
-
-static int slogic_aux_transact(struct slogic_context *devc, uint32_t cmd,
-			       uint8_t *payload, size_t payload_cap,
-			       size_t *payload_len)
-{
-	uint32_t h;
-	int retry;
-	size_t n;
-
-	if (!payload || payload_cap < 4)
-		return SR_ERR_ARG;
-
-	if (slogic_wr32(devc, SLOGIC_R32_AUX, cmd) != SR_OK)
-		return SR_ERR;
-
-	for (retry = 0; retry < 8; retry++) {
-		if (slogic_rd32(devc, SLOGIC_R32_AUX, &h) != SR_OK)
-			return SR_ERR;
-		if ((h >> 16) & 1u)
-			break;
-	}
-	if (!((h >> 16) & 1u)) {
-		sr_err("AUX cmd %u timeout (hdr=0x%08x)", cmd, h);
-		return SR_ERR;
-	}
-
-	n = (size_t)((h & 0xffffu) >> 9);
-	if (n > payload_cap)
-		n = payload_cap;
-	if (n & 3)
-		n = (n + 3) & ~(size_t)3;
-	if (n > payload_cap)
-		n = payload_cap & ~(size_t)3;
-	if (n == 0)
-		n = 4;
-
-	memset(payload, 0, payload_cap);
-	if (slogic_ctrl_xfer(devc, 1, SLOGIC_R32_AUX + 4, payload, n) != SR_OK)
-		return SR_ERR;
-	if (payload_len)
-		*payload_len = n;
-	return SR_OK;
-}
-
-static int slogic_aux_write_payload(struct slogic_context *devc,
-				    uint8_t *payload, size_t n)
-{
-	if (n & 3)
-		n = (n + 3) & ~(size_t)3;
-	return slogic_ctrl_xfer(devc, 0, SLOGIC_R32_AUX + 4, payload, n);
-}
-
-static int slogic_reset(struct slogic_context *devc)
-{
-	int ret;
-
-	if (!devc || !devc->model || devc->model->protocol == SLOGIC_PROTO_COMBO8)
-		return SR_OK;
-
-	ret = slogic_wr32(devc, SLOGIC_R32_CTRL, SLOGIC_CTRL_RST);
-	if (ret != SR_OK)
-		return ret;
-	return slogic_wr32(devc, SLOGIC_R32_CTRL, SLOGIC_CTRL_STOP);
-}
-
-static uint32_t slogic_vth_to_dac(double v)
-{
-	if (v < 0.0)
-		v = 0.0;
-	if (v > 6.0)
-		v = 6.0;
-	/* Official: dac = V / 3.33 / 2 * 1024  (~10-bit, 1.6 V ref) */
-	return (uint32_t)(v / 3.33 / 2.0 * 1024.0 + 0.5);
-}
-
-static uint32_t slogic_channel_mask(int channel_count)
-{
-	if (channel_count >= 32)
-		return UINT32_MAX;
-	if (channel_count <= 0)
-		return 0;
-	return (UINT32_C(1) << channel_count) - 1u;
-}
-
-static int slogic_apply_channel(struct slogic_context *devc)
-{
-	uint8_t pay[16];
-	size_t n = 0;
-	uint32_t mask;
-
-	if (!devc || !devc->model || devc->model->protocol == SLOGIC_PROTO_COMBO8)
-		return SR_OK;
-	mask = slogic_channel_mask(devc->channel_count);
-
-	if (slogic_aux_transact(devc, SLOGIC_AUX_CMD_CHANNEL, pay,
-				sizeof(pay), &n) != SR_OK)
-		return SR_ERR;
-	pay[0] = (uint8_t)(mask);
-	pay[1] = (uint8_t)(mask >> 8);
-	pay[2] = (uint8_t)(mask >> 16);
-	pay[3] = (uint8_t)(mask >> 24);
-	if (n < 4)
-		n = 4;
-	if (slogic_aux_write_payload(devc, pay, n) != SR_OK)
-		return SR_ERR;
-	sr_info("AUX channel mask=0x%08x nch=%d", mask, devc->channel_count);
-	return SR_OK;
-}
-
-static int slogic_apply_samplerate(struct slogic_context *devc)
-{
-	uint8_t pay[16];
-	size_t n = 0;
-	int tries;
-
-	if (!devc || !devc->model || devc->model->protocol == SLOGIC_PROTO_COMBO8)
-		return SR_OK;
-
-	if (slogic_aux_transact(devc, SLOGIC_AUX_CMD_RATE, pay,
-				sizeof(pay), &n) != SR_OK)
-		return SR_ERR;
-	if (n < 8)
-		n = 8;
-
-	for (tries = 0; tries < 2; tries++) {
-		uint16_t idx, base_mhz;
-		uint64_t base, want;
-		uint32_t divm1;
-
-		if (slogic_ctrl_xfer(devc, 1, SLOGIC_R32_AUX + 4, pay, n) != SR_OK)
-			return SR_ERR;
-		idx = (uint16_t)(pay[0] | (pay[1] << 8));
-		base_mhz = (uint16_t)(pay[2] | (pay[3] << 8));
-		base = (uint64_t)base_mhz * SR_MHZ(1);
-		want = devc->samplerate;
-		if (base == 0) {
-			sr_err("AUX samplerate base=0");
-			return SR_ERR;
-		}
-		if (base % want != 0) {
-			idx++;
-			pay[0] = (uint8_t)idx;
-			pay[1] = (uint8_t)(idx >> 8);
-			if (slogic_aux_write_payload(devc, pay, 4) != SR_OK)
-				return SR_ERR;
-			continue;
-		}
-		divm1 = (uint32_t)(base / want - 1);
-		pay[4] = (uint8_t)(divm1);
-		pay[5] = (uint8_t)(divm1 >> 8);
-		pay[6] = (uint8_t)(divm1 >> 16);
-		pay[7] = (uint8_t)(divm1 >> 24);
-		if (slogic_aux_write_payload(devc, pay, n) != SR_OK)
-			return SR_ERR;
-		sr_info("AUX rate want=%" PRIu64 " base=%u MHz div=%u idx=%u",
-			want, base_mhz, divm1 + 1, idx);
-		return SR_OK;
-	}
-	sr_err("failed to map samplerate %" PRIu64, devc->samplerate);
-	return SR_ERR;
-}
-
-static int slogic_apply_vth(struct slogic_context *devc)
-{
-	uint8_t pay[16];
-	size_t n = 0;
-	uint32_t dac;
-
-	if (!devc || !devc->model || devc->model->protocol == SLOGIC_PROTO_COMBO8)
-		return SR_OK;
-	dac = slogic_vth_to_dac(devc->vth);
-
-	if (slogic_aux_transact(devc, SLOGIC_AUX_CMD_VREF, pay,
-				sizeof(pay), &n) != SR_OK)
-		return SR_ERR;
-	pay[0] = (uint8_t)(dac);
-	pay[1] = (uint8_t)(dac >> 8);
-	pay[2] = (uint8_t)(dac >> 16);
-	pay[3] = (uint8_t)(dac >> 24);
-	if (n < 4)
-		n = 4;
-	if (slogic_aux_write_payload(devc, pay, n) != SR_OK)
-		return SR_ERR;
-	sr_info("AUX vth=%.2f V dac=%u", devc->vth, dac);
-	return SR_OK;
+	al_transport(devc, &t);
+	return slogic_reset(devc->model, &t) == SLOGIC_OK ? SR_OK : SR_ERR;
 }
 
 static void slogic_drain_ep(struct slogic_context *devc);
 
-static int slogic_combo8_start(struct slogic_context *devc)
-{
-	uint16_t mhz;
-	/* Firmware consumes a four-byte aligned control payload; byte 3 is
-	 * reserved/padding (the upstream packed command is three bytes). */
-	uint8_t cmd[4] = { 0, 0, 0, 0 };
-
-	if (!devc)
-		return SR_ERR_ARG;
-	mhz = (uint16_t)(devc->samplerate / SR_MHZ(1));
-	cmd[0] = (uint8_t)mhz;
-	cmd[1] = (uint8_t)(mhz >> 8);
-	cmd[2] = (uint8_t)devc->channel_count;
-	return slogic_combo_control(devc, SLOGIC_COMBO8_CMD_START, cmd,
-			(uint16_t)sizeof(cmd));
-}
-
-static int slogic_apply_test_mode(struct slogic_context *devc, uint32_t mode)
-{
-	uint8_t pay[16];
-	size_t n = 0;
-
-	if (!devc || !devc->model || devc->model->protocol != SLOGIC_PROTO_U3)
-		return SR_ERR_NA;
-	if (slogic_aux_transact(devc, SLOGIC_AUX_CMD_TEST, pay,
-				 sizeof(pay), &n) != SR_OK)
-		return SR_ERR;
-	if (n < 4)
-		n = 4;
-	pay[0] = (uint8_t)mode;
-	pay[1] = (uint8_t)(mode >> 8);
-	pay[2] = (uint8_t)(mode >> 16);
-	pay[3] = (uint8_t)(mode >> 24);
-	return slogic_aux_write_payload(devc, pay, n);
-}
-
 static int slogic_hw_start(struct slogic_context *devc)
 {
+	slogic_transport t;
+	slogic_config c;
+
 	if (!devc || !devc->model)
 		return SR_ERR_ARG;
-	if (devc->model->protocol == SLOGIC_PROTO_COMBO8)
-		return slogic_combo8_start(devc);
-	return slogic_wr32(devc, SLOGIC_R32_CTRL, SLOGIC_CTRL_RUN);
+	al_transport(devc, &t);
+	al_config(devc, &c);
+	/* U3 writes CTRL=RUN; Combo 8 carries rate + channel count in its start
+	 * command (the core handles both from the config). */
+	return slogic_run(devc->model, &t, &c) == SLOGIC_OK ? SR_OK : SR_ERR;
 }
 
 static void slogic_hw_stop(struct slogic_context *devc)
@@ -893,14 +532,18 @@ static void slogic_hw_stop(struct slogic_context *devc)
 		g_atomic_int_set(&devc->fw_streaming, 0);
 		return;
 	}
-	if (devc->model && devc->model->protocol == SLOGIC_PROTO_COMBO8) {
+	if (devc->model && devc->model->proto == SLOGIC_PROTO_COMBO8) {
 		/* CMD_STOP is unreliable in current Combo8 firmware; draining EP1
 		 * is the upstream driver's documented stop sequence. */
 		slogic_drain_ep(devc);
 		g_atomic_int_set(&devc->fw_streaming, 0);
 		return;
 	}
-	ret = slogic_wr32(devc, SLOGIC_R32_CTRL, SLOGIC_CTRL_STOP);
+	{
+		slogic_transport t;
+		al_transport(devc, &t);
+		ret = slogic_stop(devc->model, &t) == SLOGIC_OK ? SR_OK : SR_ERR;
+	}
 	if (ret != SR_OK) {
 		devc->hw_stop_attempts++;
 		sr_err("HW stop failed, will retry (%d/10)",
@@ -2120,7 +1763,7 @@ static GSList *hw_scan(GSList *options)
 		devc->sr_ctx = drvc->sr_ctx;
 		devc->model = model;
 		devc->ch_mode = 0;
-		devc->channel_count = model->channel_counts[0];
+		devc->channel_count = (model->physical_channels >> (0));
 		devc->filter = SR_FILTER_NONE;
 		devc->limit_samples = SLOGIC_DEFAULT_SAMPLES;
 		devc->max_height = 1;
@@ -2144,7 +1787,7 @@ static GSList *hw_scan(GSList *options)
 		devc->sdi = sdi;
 		sdi->handle = (ds_device_handle)devc->usb_dev;
 		slogic_update_usb_speed(devc);
-		slogic_map_samplerate(devc, model->limit_rates[0]);
+		slogic_map_samplerate(devc, slogic_max_rate(model, model->physical_channels >> (0)));
 
 		usb_info = sr_usb_dev_inst_new(bus, address);
 		if (usb_info) {
@@ -2261,7 +1904,7 @@ static int hw_dev_open(struct sr_dev_inst *sdi)
 	slogic_update_usb_speed(devc);
 	slogic_map_samplerate(devc, devc->samplerate ? devc->samplerate
 						     : SR_MHZ(100));
-	if (slogic_reset(devc) != SR_OK)
+	if (slogic_hw_reset(devc) != SR_OK)
 		sr_warn("device reset failed (continuing)");
 
 	sdi->status = SR_ST_ACTIVE;
@@ -2376,9 +2019,9 @@ SR_PRIV void slogic16u3_on_usb_reconnected(struct sr_dev_inst *sdi,
 		libusb_unref_device(devc->usb_dev);
 	devc->usb_dev = libusb_ref_device(new_dev);
 	devc->model = model;
-	if ((size_t)devc->ch_mode >= model->channel_count_count)
+	if ((size_t)devc->ch_mode >= model->limit_count)
 		devc->ch_mode = 0;
-	devc->channel_count = model->channel_counts[devc->ch_mode];
+	devc->channel_count = (model->physical_channels >> (devc->ch_mode));
 	devc->sdi = sdi;
 	sdi->handle = (ds_device_handle)devc->usb_dev;
 	if (old_model != model) {
@@ -2387,7 +2030,7 @@ SR_PRIV void slogic16u3_on_usb_reconnected(struct sr_dev_inst *sdi,
 	}
 	slogic_update_usb_speed(devc);
 	slogic_map_samplerate(devc, devc->samplerate ? devc->samplerate
-							     : model->limit_rates[devc->ch_mode]);
+							     : slogic_max_rate(model, model->physical_channels >> (devc->ch_mode)));
 	sr_info("reconnected: name=\"%s\" speed=%s max=%" PRIu64,
 		sdi->name ? sdi->name : "?",
 		slogic_speed_name(devc->usb_speed),
@@ -2411,8 +2054,8 @@ static int slogic_mode_for_channels(const struct slogic_model *model, int channe
 
 	if (!model)
 		return -1;
-	for (i = 0; i < model->channel_count_count; i++) {
-		if (model->channel_counts[i] == channels)
+	for (i = 0; i < model->limit_count; i++) {
+		if ((model->physical_channels >> (i)) == channels)
 			return (int)i;
 	}
 	return -1;
@@ -2422,17 +2065,10 @@ static int slogic_set_pattern_mode(struct slogic_context *devc, int mode)
 {
 	if (!devc || mode < 0 || mode >= (int)ARRAY_SIZE(pattern_modes))
 		return SR_ERR_ARG;
-	if (devc->model && devc->model->protocol == SLOGIC_PROTO_COMBO8 && mode != 0)
+	if (devc->model && devc->model->proto == SLOGIC_PROTO_COMBO8 && mode != 0)
 		return SR_ERR_NA;
-	if (devc->devhdl && devc->model && devc->model->protocol == SLOGIC_PROTO_U3) {
-		if (mode == 0) {
-			if (slogic_reset(devc) != SR_OK ||
-				slogic_apply_test_mode(devc, 0) != SR_OK)
-				return SR_ERR;
-		} else if (slogic_apply_test_mode(devc, (uint32_t)mode) != SR_OK) {
-			return SR_ERR;
-		}
-	}
+	/* Stored only; the shared core applies the pattern at the next
+	 * slogic_reset + slogic_configure (done at acquisition start). */
 	devc->pattern_mode = mode;
 	return SR_OK;
 }
@@ -2469,7 +2105,7 @@ static int config_get(int id, GVariant **data, const struct sr_dev_inst *sdi,
 		*data = g_variant_new_byte(devc->max_height);
 		break;
 	case SR_CONF_HW_DEPTH:
-		*data = g_variant_new_uint64(devc->model ? devc->model->hw_depth :
+		*data = g_variant_new_uint64(devc->model ? SLOGIC_HW_DEPTH :
 			SLOGIC_HW_DEPTH);
 		break;
 	case SR_CONF_TOTAL_CH_NUM:
@@ -2505,7 +2141,7 @@ static int config_get(int id, GVariant **data, const struct sr_dev_inst *sdi,
 		break;
 	case SR_CONF_USB30_SUPPORT:
 		*data = g_variant_new_boolean(devc->model &&
-			devc->model->usb3_capable);
+			(devc->model->proto == SLOGIC_PROTO_U3));
 		break;
 	case SR_CONF_LA_CH32:
 		*data = g_variant_new_boolean(devc->model &&
@@ -2588,7 +2224,7 @@ static int config_set(int id, GVariant *data, struct sr_dev_inst *sdi,
 	case SR_CONF_CHANNEL_MODE: {
 		int nv = g_variant_get_int16(data);
 		if (!devc->model || nv < 0 ||
-		    (size_t)nv >= devc->model->channel_count_count)
+		    (size_t)nv >= devc->model->limit_count)
 			return SR_ERR;
 		devc->ch_mode = nv;
 		slogic_apply_channel_mode(sdi);
@@ -2654,9 +2290,9 @@ static int config_list(int key, GVariant **data, const struct sr_dev_inst *sdi,
 			slogic_build_rate_list(devc, rate_buf, &rate_n);
 		else {
 			unsigned int i;
-			for (i = 0; i < ARRAY_SIZE(slogic_16u3_rates); i++)
-				if (slogic_16u3_rates[i] <= SR_MHZ(200))
-					rate_buf[rate_n++] = slogic_16u3_rates[i];
+			const slogic_model *m16 = slogic_model_for_pid(SLOGIC_PID_16U3); for (i = 0; m16 && i < m16->rate_count; i++)
+				if (m16->rates[i] <= SR_MHZ(200))
+					rate_buf[rate_n++] = m16->rates[i];
 			rate_buf[rate_n] = 0;
 		}
 		g_variant_builder_init(&gvb, G_VARIANT_TYPE("a{sv}"));
@@ -2746,18 +2382,23 @@ static int hw_dev_acquisition_start(struct sr_dev_inst *sdi, void *cb_data)
 	 * arming new URBs.  Note: do not reset the capture engine here - a
 	 * register reset would discard the pattern generator and reference
 	 * voltage configuration the user selected. */
-	if (devc->model && devc->model->protocol == SLOGIC_PROTO_U3)
-		slogic_wr32(devc, SLOGIC_R32_CTRL, SLOGIC_CTRL_STOP);
 	slogic_drain_ep(devc);
 
-	if ((ret = slogic_apply_channel(devc)) != SR_OK ||
-	    (ret = slogic_apply_samplerate(devc)) != SR_OK ||
-	    (ret = slogic_apply_vth(devc)) != SR_OK) {
-		return ret;
-	}
-	if (devc->pattern_mode != 0 &&
-	    (ret = slogic_apply_test_mode(devc, (uint32_t)devc->pattern_mode)) != SR_OK) {
-		return ret;
+	/* reset -> configure -> run, as in the libsigrok adapter. The reset
+	 * re-establishes the sample clock for the selected channel-mode/rate
+	 * (needed e.g. for 4 ch @ 1400 MHz); slogic_configure then re-applies
+	 * channel mask, samplerate, threshold and pattern in canonical order, so
+	 * nothing the reset cleared is lost. */
+	{
+		slogic_transport t;
+		slogic_config c;
+		al_transport(devc, &t);
+		al_config(devc, &c);
+		if (slogic_reset(devc->model, &t) != SLOGIC_OK ||
+		    slogic_configure(devc->model, &t, &c) != SLOGIC_OK) {
+			sr_err("slogic reset/configure failed");
+			return SR_ERR;
+		}
 	}
 
 	if ((ret = start_transfers(devc)) != SR_OK) {
