@@ -25,6 +25,9 @@
 #include <stdlib.h>
 #include <string.h>
 #include "config.h"
+#ifdef HAVE_SLOGIC_DEVICE
+#include "hardware/sipeed-slogic/slogic/slogic.h" /* slogic_is_analyzer() */
+#endif
 
 #ifdef _WIN32
 #include <windows.h>
@@ -1332,8 +1335,7 @@ static int update_device_handle(struct libusb_device *old_dev, struct libusb_dev
 #endif
 #ifdef HAVE_SLOGIC_DEVICE
 		if (slogic_count == 1 && slogic_fallback != NULL &&
-		    nvid == 0x359F &&
-		    (npid == 0x0300 || npid == 0x3031 || npid == 0x3032)) {
+		    slogic_is_analyzer(nvid, npid)) {
 			sr_info("SLogic reconnect: fall back to sole SLogic instance.");
 			fallback = slogic_fallback;
 			bFind = 1;

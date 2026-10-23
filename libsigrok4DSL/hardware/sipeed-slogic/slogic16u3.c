@@ -2,7 +2,7 @@
  * Sipeed SLogic driver for DSView / libsigrok4DSL
  *
  * USB protocol (Sipeed libsigrok slogic-dev):
- *   VID 0x359F  PID 0x0300 (SLogic Combo 8),
+ *   VID 0x359F  PID 0x3000 (SLogic8U2; 0x0300 on old firmware),
  *                 0x3031 (SLogic16U3), or
  *                 0x3032 (SLogic32U3)
  *   EP0 vendor control: 32-bit register read/write
@@ -215,19 +215,6 @@ static struct sr_dev_driver *di = &slogic16u3_driver_info;
 
 /* -------------------- USB / speed -------------------- */
 
-static const char *slogic_speed_name(enum libusb_speed sp)
-{
-	switch (sp) {
-	case LIBUSB_SPEED_LOW: return "LOW";
-	case LIBUSB_SPEED_FULL: return "FULL";
-	case LIBUSB_SPEED_HIGH: return "HIGH(USB2.0)";
-	case LIBUSB_SPEED_SUPER: return "SUPER(USB3.0)";
-	case LIBUSB_SPEED_SUPER_PLUS: return "SUPER+(USB3.x)";
-	default: return "UNKNOWN";
-	}
-}
-
-
 static const struct sr_list_item *slogic_channel_mode_list(
 		const struct slogic_model *model)
 {
@@ -276,28 +263,17 @@ static uint64_t al_link_max_rate(const struct slogic_context *devc)
 	return slogic_link_max_rate(al_model(devc), al_nch(devc), al_link(devc));
 }
 
-/* "(10G) SLogic32U3": the link tag goes first so it survives when the UI
- * elides a long device name. */
-static void slogic_apply_model_name(struct sr_dev_inst *sdi,
-					    const struct slogic_model *model,
-					    enum libusb_speed sp)
+/* "(10G) SLogic32 U3", "(480M) SLogic8 U2", "(old) SLogic8 U2": the same name
+ * in every SLogic app (slogic_display_name); the prefix goes first so it
+ * survives when the UI elides a long device name. */
+static void slogic_apply_model_name(struct slogic_context *devc)
 {
-	const char *tag;
-	slogic_link link;
+	char name[64];
+	struct sr_dev_inst *sdi = (struct sr_dev_inst *)devc->sdi;
 
-	if (!sdi || !model)
-		return;
-	switch (sp) {
-	case LIBUSB_SPEED_SUPER_PLUS: link = SLOGIC_LINK_SUPER_PLUS; break;
-	case LIBUSB_SPEED_SUPER: link = SLOGIC_LINK_SUPER; break;
-	case LIBUSB_SPEED_HIGH: link = SLOGIC_LINK_HIGH; break;
-	case LIBUSB_SPEED_FULL: link = SLOGIC_LINK_FULL; break;
-	default: link = SLOGIC_LINK_UNKNOWN; break;
-	}
-	tag = model->proto == SLOGIC_PROTO_COMBO8 ? NULL : slogic_link_tag(link);
 	g_free(sdi->name);
-	sdi->name = tag ? g_strdup_printf("(%s) %s", tag, model->name)
-			: g_strdup(model->name);
+	sdi->name = g_strdup(slogic_display_name(devc->model, al_link(devc),
+						 name, sizeof(name)));
 }
 
 static void slogic_update_usb_speed(struct slogic_context *devc)
@@ -309,8 +285,7 @@ static void slogic_update_usb_speed(struct slogic_context *devc)
 	sp = libusb_get_device_speed(devc->usb_dev);
 	devc->usb_speed = sp;
 	if (devc->sdi)
-		slogic_apply_model_name((struct sr_dev_inst *)devc->sdi,
-					devc->model, sp);
+		slogic_apply_model_name(devc);
 }
 
 static uint64_t al_pick_rate(const struct slogic_context *devc, uint64_t want)
@@ -1075,10 +1050,10 @@ static GSList *hw_scan(GSList *options)
 		setup_channels(sdi, model->physical_channels);
 		slogic_apply_channel_mode(sdi);
 
-		sr_info("Found %s 359f:%04x bus=%u addr=%u speed=%s name=%s",
+		sr_info("Found %s %04x:%04x bus=%u addr=%u speed=%s name=%s",
 			model->name,
-			des.idProduct, bus, address,
-			slogic_speed_name(devc->usb_speed),
+			des.idVendor, des.idProduct, bus, address,
+			slogic_link_name(al_link(devc)),
 			sdi->name ? sdi->name : "?");
 		devices = g_slist_append(devices, sdi);
 	}
@@ -1146,7 +1121,7 @@ static int hw_dev_open(struct sr_dev_inst *sdi)
 	sdi->status = SR_ST_ACTIVE;
 	sr_info("open: name=\"%s\" speed=%s",
 		sdi->name ? sdi->name : "?",
-		slogic_speed_name(devc->usb_speed));
+		slogic_link_name(al_link(devc)));
 	return SR_OK;
 }
 
@@ -1241,7 +1216,7 @@ SR_PRIV void slogic16u3_on_usb_reconnected(struct sr_dev_inst *sdi,
 							     : slogic_max_rate(model, model->physical_channels >> (devc->ch_mode)));
 	sr_info("reconnected: name=\"%s\" speed=%s max=%" PRIu64,
 		sdi->name ? sdi->name : "?",
-		slogic_speed_name(devc->usb_speed),
+		slogic_link_name(al_link(devc)),
 		al_link_max_rate(devc));
 }
 
@@ -1579,7 +1554,7 @@ static int hw_dev_acquisition_start(struct sr_dev_inst *sdi, void *cb_data)
 		" speed=%s trigger=%s pre=%" PRIu64,
 		devc->channel_count, devc->en_count, devc->samplerate,
 		devc->is_loop, devc->limit_samples,
-		slogic_speed_name(devc->usb_speed),
+		slogic_link_name(al_link(devc)),
 		slogic_trigger_spec_empty(&c.trigger) ? "off" : "on",
 		c.pretrigger_samples);
 

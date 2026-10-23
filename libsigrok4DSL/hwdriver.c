@@ -25,6 +25,9 @@
 #include <string.h>
 #include <glib.h>
 #include "config.h" /* Needed for HAVE_LIBUSB_1_0 and others. */
+#ifdef HAVE_SLOGIC_DEVICE
+#include "hardware/sipeed-slogic/slogic/slogic.h" /* slogic_is_analyzer() */
+#endif
 #include "log.h"
 #include <assert.h>
 
@@ -438,14 +441,15 @@ SR_PRIV int ds_scan_all_device_list(libusb_context *usb_ctx,struct libusb_device
             continue;
         }
 
-		/* DreamSourceLab + WCH CH32 + SLogic family + PXLogic + ATK-Logic + nanoDLA */
+		/* DreamSourceLab + WCH CH32 + SLogic family (from libslogic's model
+		 * table) + PXLogic + ATK-Logic + nanoDLA */
 		if (des.idVendor == DS_VENDOR_ID ||
 		    (des.idVendor == 0x1A86 &&
 		     (des.idProduct == 0x5537 || des.idProduct == 0x5538 ||
 		      des.idProduct == 0x5237 || des.idProduct == 0xFFCC)) ||
-		    (des.idVendor == 0x359F &&
-		     (des.idProduct == 0x0300 || des.idProduct == 0x3031 ||
-		      des.idProduct == 0x3032)) ||
+#ifdef HAVE_SLOGIC_DEVICE
+		    slogic_is_analyzer(des.idVendor, des.idProduct) ||
+#endif
 		    (des.idVendor == 0x16C0 && des.idProduct == 0x05DC) ||
 		    (des.idVendor == 0x1D50 &&
 		     (des.idProduct == 0x608C || des.idProduct == 0x608D))) {
